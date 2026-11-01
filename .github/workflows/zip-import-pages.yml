@@ -1,0 +1,167 @@
+
+# Dieser Workflow wird einmalig im Repository angelegt.
+# Release-ZIPs enthalten keine .github-Dateien.
+
+name: Import ZIP and deploy Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.zip'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-zip-import
+  cancel-in-progress: false
+
+jobs:
+  import-and-deploy:
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Verify exactly one newly added ZIP and import safely
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import hashlib, os, pathlib, shutil, subprocess, tempfile, zipfile
+
+          root = pathlib.Path.cwd()
+          sha = os.environ['GITHUB_SHA']
+
+          result = subprocess.run(
+              ['git', 'diff-tree', '--no-commit-id',
+               '--name-only', '--diff-filter=A', '-r', sha],
+              text=True, capture_output=True, check=True
+          )
+
+          added = [
+              x for x in result.stdout.splitlines()
+              if x.endswith('.zip') and '/' not in x
+          ]
+
+          if len(added) != 1:
+              raise SystemExit(
+                  f'Expected exactly one newly added ZIP; got: {added}'
+              )
+
+          name = added[0]
+          path = root / name
+
+          print('Selected ZIP:', name, flush=True)
+          print('SHA-256:', hashlib.sha256(
+              path.read_bytes()).hexdigest(), flush=True)
+
+          if path.stat().st_size > 30_000_000:
+              raise SystemExit('Archive too large')
+
+          with tempfile.TemporaryDirectory() as d:
+              target = pathlib.Path(d)
+
+              with zipfile.ZipFile(path) as z:
+                  members = z.infolist()
+
+                  if not members or len(members) > 300:
+                      raise SystemExit('Empty / too many files')
+
+                  if sum(i.file_size for i in members) > 80_000_000:
+                      raise SystemExit('Archive inflates too large')
+
+                  for i in members:
+                      raw = i.filename
+                      parts = pathlib.PurePosixPath(raw).parts
+
+                      if (
+                          not raw
+                          or raw.startswith('/')
+                          or '\\' in raw
+                          or '..' in parts
+                          or any(s in parts for s in (
+                              '.git', '.github', '.gitignore'
+                          ))
+                          or any(s.startswith('.') for s in parts)
+                          or any(x.lower() in raw.lower() for x in (
+                              'secret_key',
+                              'service-token',
+                              '.env',
+                              'credentials',
+                              'id_rsa'
+                          ))
+                      ):
+                          raise SystemExit(
+                              f'Unsafe archive member: {raw}'
+                          )
+
+                      if (
+                          (i.external_attr >> 16) & 0o170000
+                      ) == 0o120000:
+                          raise SystemExit(
+                              f'Symlink refused: {raw}'
+                          )
+
+                  if not any(
+                      i.filename == 'index.html' for i in members
+                  ):
+                      raise SystemExit(
+                          'index.html must be in archive root'
+                      )
+
+                  z.extractall(target)
+
+              subprocess.run([
+                  'rsync', '-a', '--delete',
+                  '--exclude=.git/',
+                  '--exclude=.github/',
+                  '--exclude=.gitignore',
+                  f'--exclude={name}',
+                  str(target) + '/',
+                  str(root) + '/'
+              ], check=True)
+
+          path.unlink()
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email \
+            '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git add -A -- ':!.github' ':!.gitignore'
+
+          if ! git diff --cached --quiet; then
+            git commit -m 'Import Flip 7 Pages release'
+            git push origin HEAD:main
+          fi
+
+      - name: Prepare static Pages root
+        run: |
+          mkdir -p _site
+          rsync -a ./ _site/ \
+            --exclude=_site/ \
+            --exclude='.github/' \
+            --exclude='.git/' \
+            --exclude='.gitignore' \
+            --exclude='*.zip' \
+            --exclude='*.yml'
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
