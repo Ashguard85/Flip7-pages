@@ -18,4 +18,4 @@ export async function serverRequest(path,opts={},config){
  const ct=response.headers.get('Content-Type')||'';if(!ct.includes('application/json'))throw Error('HTML statt JSON erhalten – möglicherweise eine Login-Seite von Cloudflare Access');
  return response.json();
 }
-export function serverProvider(config){return {async load(){return serverRequest('/api/data',{},config);},async save(data,revision){validateData(data);return serverRequest('/api/data',{method:'PUT',body:JSON.stringify({data,revision})},config);},async check(){return serverRequest('/api/health',{},config);}};}
+export function serverProvider(config){return {async load(){const r=await serverRequest('/api/v1/apps/flip7/state',{},config);return {revision:r.revision,data:r.data||emptyData()};},async save(data,revision){validateData(data);return serverRequest('/api/v1/apps/flip7/state',{method:'PUT',body:JSON.stringify({data,revision})},config);},async check(){return serverRequest('/api/health',{},config);}};}
