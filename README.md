@@ -17,3 +17,6 @@ Gleiche PWA-App-Shell, kein CDN; manuell aktivierbarer Service-Worker-Update-Lif
 ## Einschränkungen
 
 Die Profile der Flip-7-PWA sind weiterhin App-intern; zentrale Spielerprofile und gemeinsame Statistiken müssen gesondert verbunden werden. Yatzy ist noch nicht auf das zentrale Backend umgestellt. Cloudflare CORS und Access müssen auf die korrekte Pages-Origin und die gewünschten Header abgestimmt sein.
+
+## v3 Gastmodus
+«Gastpartie» eröffnet eine ausschliesslich im Arbeitsspeicher vorhandene Partie mit 2–8 frei eingegebenen Namen. Weder Profile noch Punkte, Ergebnis oder Spielhistorie werden in IndexedDB oder auf dem Server gespeichert. Die Gastpartie wird nach Schliessen/Neuladen der PWA verworfen. Ein PNG kann durch bewusste Teilen-Aktion ausgegeben werden. «Gastmodus verlassen» stellt den zuvor geladenen regulären Datenstand wieder her; im Gastmodus sind Backup, Import, Transfer und Setup gesperrt. Die v2-Daten bleiben unverändert.

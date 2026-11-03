@@ -1,5 +1,5 @@
 /* Flip 7 Punkteblock v1: domain model shared by local/server frontends. */
-export const VERSION = 'v2';
+export const VERSION = 'v3';
 export const BACKUP_FORMAT = 'flip7-punkteblock-backup';
 export const BONUS = [2,4,6,8,10];
 // randomUUID() is HTTPS-only; Docker must remain usable on ordinary LAN HTTP.

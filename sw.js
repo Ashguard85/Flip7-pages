@@ -1,5 +1,5 @@
-/* Flip 7 v2. Never activate an update without explicit user action. */
-const VERSION='v2';const CACHE=`flip7-shell-${VERSION}`;
+/* Flip 7 v3. Never activate an update without explicit user action. */
+const VERSION='v3';const CACHE=`flip7-shell-${VERSION}`;
 const CORE=['./','./index.html','./app.css','./app.js','./core.js','./providers.js','./manifest.webmanifest','./icons.svg'];
 const OPTIONAL=['./offline.html','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./favicon.svg'];
 const abs=path=>new URL(path,self.registration.scope).href;
